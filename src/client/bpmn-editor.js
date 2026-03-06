@@ -12,7 +12,7 @@ import BpmnColorPickerModule from 'bpmn-js-color-picker';
 
 import { handleMacOsKeyboard } from './utils/macos-keyboard';
 
-import 中文翻译 from './i18n';
+// import 中文翻译 from './i18n/index';
 
 /**
  * @type { import('vscode') }
@@ -25,7 +25,7 @@ const modeler = new BpmnModeler({
   container: '#canvas',
   additionalModules: [
     BpmnColorPickerModule,
-    { translate: ['value', 中文翻译] }
+    // { translate: ['value', 中文翻译] }
   ]
 });
 
