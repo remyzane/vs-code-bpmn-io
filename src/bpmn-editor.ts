@@ -1,4 +1,4 @@
-import { Disposable, disposeAll } from './dispose';
+import { Disposable } from './dispose';
 import * as vsc from './接口封装';
 
 /**
@@ -173,7 +173,7 @@ class BpmnDocument extends Disposable implements vsc.CustomDocument {
 
     this._text = text;
 
-    await writeFile(targetResource, text);
+    await vsc.写文件(targetResource, text);
 
     this._onDidRename.fire({
       oldUri: this.uri,
@@ -336,7 +336,7 @@ export class BpmnEditor implements vsc.CustomEditorProvider<BpmnDocument> {
       }
     }));
 
-    document.onDidDispose(() => disposeAll(listeners));
+    document.onDidDispose(() => vsc.全部清除(listeners));
 
     // track documents
 

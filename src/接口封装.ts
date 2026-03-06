@@ -20,3 +20,12 @@ export async function 读文件(uri: vsc.Uri): Promise<string> {
 export async function 写文件(uri: vsc.Uri, text: string): Promise<void> {
     await vsc.workspace.fs.writeFile(uri, Buffer.from(text, 'utf8'));
 }
+
+export function 全部清除(可清除对象列表: vsc.Disposable[]): void {
+    while (可清除对象列表.length) {
+        const 可清除对象 = 可清除对象列表.pop();
+        if (可清除对象) {
+            可清除对象.dispose();
+        }
+    }
+}
