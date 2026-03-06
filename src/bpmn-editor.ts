@@ -1,6 +1,5 @@
-import * as vscode from 'vscode';
 import { Disposable, disposeAll } from './dispose';
-import { getNonce } from './util';
+import * as vsc from './接口封装';
 
 /**
  * Define the type of edits used in paw draw files.
@@ -17,21 +16,21 @@ interface BpmnDocumentDelegate {
 /**
  * Define the document (the data model) used for paw draw files.
  */
-class BpmnDocument extends Disposable implements vscode.CustomDocument {
+class BpmnDocument extends Disposable implements vsc.CustomDocument {
 
   static async create(
-      uri: vscode.Uri,
-      backupId: string | undefined,
-      delegate: BpmnDocumentDelegate,
+    uri: vsc.Uri,
+    backupId: string | undefined,
+    delegate: BpmnDocumentDelegate,
   ): Promise<BpmnDocument | PromiseLike<BpmnDocument>> {
 
     // If we have a backup, read that. Otherwise read the resource from the workspace
-    const dataFile = typeof backupId === 'string' ? vscode.Uri.parse(backupId) : uri;
-    const text = await readFile(dataFile);
+    const dataFile = typeof backupId === 'string' ? vsc.Uri.parse(backupId) : uri;
+    const text = await vsc.读文件(dataFile);
     return new BpmnDocument(uri, text, delegate);
   }
 
-  private readonly _uri: vscode.Uri;
+  private readonly _uri: vsc.Uri;
 
   private _text: string;
   private _edits: Array<BpmnEdit> = [];
@@ -39,9 +38,9 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
   private readonly _delegate: BpmnDocumentDelegate;
 
   private constructor(
-      uri: vscode.Uri,
-      initialText: string,
-      delegate: BpmnDocumentDelegate
+    uri: vsc.Uri,
+    initialText: string,
+    delegate: BpmnDocumentDelegate
   ) {
     super();
     this._uri = uri;
@@ -56,14 +55,14 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
    */
   public getText(): string { return this._text; }
 
-  private readonly _onDidDispose = this._register(new vscode.EventEmitter<void>());
+  private readonly _onDidDispose = this._register(new vsc.EventEmitter<void>());
 
   /**
    * Fired when the document is disposed of.
    */
   public readonly onDidDispose = this._onDidDispose.event;
 
-  private readonly _onDidChangeContent = this._register(new vscode.EventEmitter<{
+  private readonly _onDidChangeContent = this._register(new vsc.EventEmitter<{
     readonly content?: string;
     readonly undo?: boolean;
     readonly redo?: boolean;
@@ -74,7 +73,7 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
    */
   public readonly onDidChangeContent = this._onDidChangeContent.event;
 
-  private readonly _onDidChange = this._register(new vscode.EventEmitter<{
+  private readonly _onDidChange = this._register(new vsc.EventEmitter<{
     readonly label: string;
     undo(): Thenable<void> | void;
     redo(): Thenable<void> | void
@@ -87,9 +86,9 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
    */
   public readonly onDidChange = this._onDidChange.event;
 
-  private readonly _onDidRename = this._register(new vscode.EventEmitter<{
-    oldUri: vscode.Uri,
-    newUri: vscode.Uri
+  private readonly _onDidRename = this._register(new vsc.EventEmitter<{
+    oldUri: vsc.Uri,
+    newUri: vsc.Uri
   }>());
 
   /**
@@ -159,14 +158,14 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
   /**
    * Called by VS Code when the user saves the document.
    */
-  async save(cancellation: vscode.CancellationToken): Promise<void> {
+  async save(cancellation: vsc.CancellationToken): Promise<void> {
     await this.saveAs(this.uri, cancellation);
   }
 
   /**
    * Called by VS Code when the user saves the document to a new location.
    */
-  async saveAs(targetResource: vscode.Uri, cancellation: vscode.CancellationToken): Promise<void> {
+  async saveAs(targetResource: vsc.Uri, cancellation: vsc.CancellationToken): Promise<void> {
     const text = await this._delegate.getText();
     if (cancellation.isCancellationRequested) {
       return;
@@ -185,8 +184,8 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
   /**
    * Called by VS Code when the user calls `revert` on a document.
    */
-  async revert(_cancellation: vscode.CancellationToken): Promise<void> {
-    const text = await readFile(this.uri);
+  async revert(_cancellation: vsc.CancellationToken): Promise<void> {
+    const text = await vsc.读文件(this.uri);
 
     return this.reset(text);
   }
@@ -209,14 +208,14 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
    *
    * These backups are used to implement hot exit.
    */
-  async backup(destination: vscode.Uri, cancellation: vscode.CancellationToken): Promise<vscode.CustomDocumentBackup> {
+  async backup(destination: vsc.Uri, cancellation: vsc.CancellationToken): Promise<vsc.CustomDocumentBackup> {
     await this.saveAs(destination, cancellation);
 
     return {
       id: destination.toString(),
       delete: async () => {
         try {
-          await vscode.workspace.fs.delete(destination);
+          await vsc.workspace.fs.delete(destination);
         } catch {
 
           // noop
@@ -229,36 +228,13 @@ class BpmnDocument extends Disposable implements vscode.CustomDocument {
 /**
  * Provider for visual BPMN editing.
  */
-export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
+export class BpmnEditor implements vsc.CustomEditorProvider<BpmnDocument> {
 
   private static newFileId = 1;
 
-  public static register(context: vscode.ExtensionContext): vscode.Disposable {
-    context.subscriptions.push(
-      vscode.commands.registerCommand('bpmn-io.bpmnEditor.new', async () => {
+  public static register(context: vsc.ExtensionContext): vsc.Disposable {
 
-        const currentDocumentUri =
-          vscode.window.activeTextEditor?.document.uri ||
-          vscode.window.activeNotebookEditor?.notebook.uri;
-
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-
-        const workspaceUri = workspaceFolders && workspaceFolders[0].uri;
-        const fileName = `new-${BpmnEditor.newFileId++}.bpmn`;
-
-        let uri = vscode.Uri.parse(`untitled://${fileName}`);
-
-        if (currentDocumentUri || workspaceUri) {
-          uri = vscode.Uri.joinPath((currentDocumentUri || workspaceUri)!, fileName).with({ scheme: 'untitled' });
-        }
-
-        await vscode.commands.executeCommand('vscode.openWith', uri, BpmnEditor.viewType);
-
-        return uri;
-      })
-    );
-
-    return vscode.window.registerCustomEditorProvider(
+    return vsc.window.registerCustomEditorProvider(
       BpmnEditor.viewType,
       new BpmnEditor(context),
       {
@@ -270,7 +246,7 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
     );
   }
 
-  private readonly log = vscode.window.createOutputChannel('BPMN Editor');
+  private readonly log = vsc.window.createOutputChannel('BPMN Editor');
 
   private static readonly viewType = 'bpmn-io.bpmnEditor';
 
@@ -285,11 +261,11 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
   private readonly documents = new DocumentCollection();
 
   constructor(
-    private readonly _context: vscode.ExtensionContext
+    private readonly _context: vsc.ExtensionContext
   ) {
 
     _context.subscriptions.push(
-      vscode.commands.registerCommand('bpmn-io.bpmnEditor.__state', (uri: vscode.Uri) => {
+      vsc.commands.registerCommand('bpmn-io.bpmnEditor.__state', (uri: vsc.Uri) => {
 
         const document = this.documents.get(uri);
 
@@ -304,11 +280,11 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
           webviewPanel: webviews[0]
         };
       }),
-      vscode.window.tabGroups.onDidChangeTabs(({ opened, changed }) => {
+      vsc.window.tabGroups.onDidChangeTabs(({ opened, changed }) => {
 
-        const tabs = [ ...opened, ...changed ];
+        const tabs = [...opened, ...changed];
         const active = tabs.find(tab => tab.isActive);
-        const uri = (active?.input as vscode.TabInputText)?.uri;
+        const uri = (active?.input as vsc.TabInputText)?.uri;
         const webviews = Array.from(this.webviews.get(uri));
 
         if (!webviews.length) return;
@@ -321,9 +297,9 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
   // #region CustomEditorProvider
 
   async openCustomDocument(
-      uri: vscode.Uri,
-      openContext: { backupId?: string },
-      _token: vscode.CancellationToken
+    uri: vsc.Uri,
+    openContext: { backupId?: string },
+    _token: vsc.CancellationToken
   ): Promise<BpmnDocument> {
     const document: BpmnDocument = await BpmnDocument.create(uri, openContext.backupId, {
       getText: async () => {
@@ -337,7 +313,7 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
       }
     });
 
-    const listeners: vscode.Disposable[] = [];
+    const listeners: vsc.Disposable[] = [];
 
     listeners.push(document.onDidChange(e => {
 
@@ -372,9 +348,9 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
   }
 
   async resolveCustomEditor(
-      document: BpmnDocument,
-      webviewPanel: vscode.WebviewPanel,
-      _token: vscode.CancellationToken
+    document: BpmnDocument,
+    webviewPanel: vsc.WebviewPanel,
+    _token: vsc.CancellationToken
   ): Promise<void> {
 
     // add the webview to our internal set of active webviews
@@ -395,7 +371,7 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
             editable: true,
           });
         } else {
-          const editable = vscode.workspace.fs.isWritableFileSystem(document.uri.scheme);
+          const editable = vsc.workspace.fs.isWritableFileSystem(document.uri.scheme);
 
           this.postMessage(webviewPanel, 'init', {
             content: document.getText(),
@@ -410,10 +386,10 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
         return;
       }
 
-      const content = await readFile(document.uri);
+      const content = await vsc.读文件(document.uri);
 
       if (content !== document.getText()) {
-        const action = await vscode.window.showInformationMessage(
+        const action = await vsc.window.showInformationMessage(
           'Diagram changed externally, do you want to reload it?',
           'Reload'
         );
@@ -425,22 +401,22 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
     });
   }
 
-  private readonly _onDidChangeCustomDocument = new vscode.EventEmitter<vscode.CustomDocumentEditEvent<BpmnDocument>>();
+  private readonly _onDidChangeCustomDocument = new vsc.EventEmitter<vsc.CustomDocumentEditEvent<BpmnDocument>>();
   public readonly onDidChangeCustomDocument = this._onDidChangeCustomDocument.event;
 
-  public saveCustomDocument(document: BpmnDocument, cancellation: vscode.CancellationToken): Thenable<void> {
+  public saveCustomDocument(document: BpmnDocument, cancellation: vsc.CancellationToken): Thenable<void> {
     return document.save(cancellation);
   }
 
-  public saveCustomDocumentAs(document: BpmnDocument, destination: vscode.Uri, cancellation: vscode.CancellationToken): Thenable<void> {
+  public saveCustomDocumentAs(document: BpmnDocument, destination: vsc.Uri, cancellation: vsc.CancellationToken): Thenable<void> {
     return document.saveAs(destination, cancellation);
   }
 
-  public revertCustomDocument(document: BpmnDocument, cancellation: vscode.CancellationToken): Thenable<void> {
+  public revertCustomDocument(document: BpmnDocument, cancellation: vsc.CancellationToken): Thenable<void> {
     return document.revert(cancellation);
   }
 
-  public backupCustomDocument(document: BpmnDocument, context: vscode.CustomDocumentBackupContext, cancellation: vscode.CancellationToken): Thenable<vscode.CustomDocumentBackup> {
+  public backupCustomDocument(document: BpmnDocument, context: vsc.CustomDocumentBackupContext, cancellation: vsc.CancellationToken): Thenable<vsc.CustomDocumentBackup> {
     return document.backup(context.destination, cancellation);
   }
 
@@ -449,8 +425,8 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
   /**
    * Restore focus on the modeling canvas. Enables keyboard shortcuts.
    */
-  private restoreFocusOnCanvas(webviewPanel: vscode.WebviewPanel) {
-    vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+  private restoreFocusOnCanvas(webviewPanel: vsc.WebviewPanel) {
+    vsc.commands.executeCommand('workbench.action.focusActiveEditorGroup');
 
     this.postMessage(webviewPanel, 'focusCanvas');
   }
@@ -458,19 +434,19 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
   /**
    * Get the static HTML used for in our editor's webviews.
    */
-  private getHtmlForWebview(webview: vscode.Webview): string {
+  private getHtmlForWebview(webview: vsc.Webview): string {
 
     // local path to script and css for the webview
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(
+    const scriptUri = webview.asWebviewUri(vsc.Uri.joinPath(
       this._context.extensionUri, 'out/client', 'bpmn-editor.js'));
 
-    const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(
+    const styleResetUri = webview.asWebviewUri(vsc.Uri.joinPath(
       this._context.extensionUri, 'media', 'reset.css'));
 
-    const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(
-      this._context.extensionUri, 'media', 'vscode.css'));
+    const styleVSCodeUri = webview.asWebviewUri(vsc.Uri.joinPath(
+      this._context.extensionUri, 'media', 'vsc.css'));
 
-    const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(
+    const styleMainUri = webview.asWebviewUri(vsc.Uri.joinPath(
       this._context.extensionUri, 'out/client', 'bpmn-editor.css'));
 
     // use a nonce to whitelist which scripts can be run
@@ -507,46 +483,46 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
   private _requestId = 1;
   private readonly _callbacks = new Map<number, (response: any) => void>();
 
-  private postMessageWithResponse<R = unknown>(panel: vscode.WebviewPanel, type: string, body: any): Promise<R> {
+  private postMessageWithResponse<R = unknown>(panel: vsc.WebviewPanel, type: string, body: any): Promise<R> {
     const requestId = this._requestId++;
     const p = new Promise<R>(resolve => this._callbacks.set(requestId, resolve));
     panel.webview.postMessage({ type, requestId, body });
     return p;
   }
 
-  private postMessage(panel: vscode.WebviewPanel, type: string, body: any = {}): void {
+  private postMessage(panel: vsc.WebviewPanel, type: string, body: any = {}): void {
     panel.webview.postMessage({ type, body });
   }
 
   private onMessage(document: BpmnDocument, message: any) {
     switch (message.type) {
-    case 'change':
-      return document.makeEdit(message as BpmnEdit);
+      case 'change':
+        return document.makeEdit(message as BpmnEdit);
 
-    case 'import':
+      case 'import':
 
-      if (message.error) {
-        this.log.appendLine(`${document.uri.fsPath} - ${message.error}`);
-      }
+        if (message.error) {
+          this.log.appendLine(`${document.uri.fsPath} - ${message.error}`);
+        }
 
-      for (const warning of message.warnings) {
-        this.log.appendLine(`${document.uri.fsPath} - ${warning}`);
-      }
+        for (const warning of message.warnings) {
+          this.log.appendLine(`${document.uri.fsPath} - ${warning}`);
+        }
 
-      if (message.error || message.warnings.length) {
-        this.log.show(true);
-      }
+        if (message.error || message.warnings.length) {
+          this.log.show(true);
+        }
 
-      return document.makeEdit(message as BpmnEdit);
+        return document.makeEdit(message as BpmnEdit);
 
-    case 'response':
-      return (
-        this._callbacks.get(message.requestId)
-      )?.(message.body);
+      case 'response':
+        return (
+          this._callbacks.get(message.requestId)
+        )?.(message.body);
 
-    case 'canvas-focus-change':
-      vscode.commands.executeCommand('setContext', 'bpmn-io.bpmnEditor.canvasFocused', message.value);
-      return;
+      case 'canvas-focus-change':
+        vsc.commands.executeCommand('setContext', 'bpmn-io.bpmnEditor.canvasFocused', message.value);
+        return;
 
     }
   }
@@ -555,13 +531,13 @@ export class BpmnEditor implements vscode.CustomEditorProvider<BpmnDocument> {
 class DocumentCollection {
   private readonly _documents = new Map<string, BpmnDocument>();
 
-  remove(uri: vscode.Uri) {
+  remove(uri: vsc.Uri) {
     const key = uri.toString();
 
     return this._documents.delete(key);
   }
 
-  add(uri: vscode.Uri, document: BpmnDocument) {
+  add(uri: vsc.Uri, document: BpmnDocument) {
 
     if (this.get(uri)) {
       throw new Error('document already exists');
@@ -570,7 +546,7 @@ class DocumentCollection {
     this._documents.set(uri.toString(), document);
   }
 
-  get(uri: vscode.Uri) {
+  get(uri: vsc.Uri) {
     const key = uri.toString();
 
     return this._documents.get(key);
@@ -584,13 +560,13 @@ class WebviewCollection {
 
   private readonly _webviews = new Set<{
     readonly resource: string;
-    readonly webviewPanel: vscode.WebviewPanel;
+    readonly webviewPanel: vsc.WebviewPanel;
   }>();
 
   /**
    * Get all known webviews for a given uri.
    */
-  public *get(uri: vscode.Uri): Iterable<vscode.WebviewPanel> {
+  public *get(uri: vsc.Uri): Iterable<vsc.WebviewPanel> {
     const key = uri?.toString();
     for (const entry of this._webviews) {
       if (entry.resource === key) {
@@ -602,7 +578,7 @@ class WebviewCollection {
   /**
    * Add a new webview to the collection.
    */
-  public add(uri: vscode.Uri, webviewPanel: vscode.WebviewPanel) {
+  public add(uri: vsc.Uri, webviewPanel: vsc.WebviewPanel) {
     const entry = { resource: uri.toString(), webviewPanel };
     this._webviews.add(entry);
 
@@ -611,7 +587,7 @@ class WebviewCollection {
     });
   }
 
-  public find(cb: (e: vscode.WebviewPanel) => boolean) {
+  public find(cb: (e: vsc.WebviewPanel) => boolean) {
     for (const entry of this._webviews) {
       const { webviewPanel } = entry;
 
@@ -624,14 +600,11 @@ class WebviewCollection {
   }
 }
 
-
-async function readFile(uri: vscode.Uri): Promise<string> {
-  if (uri.scheme === 'untitled') {
-    return '';
+function getNonce() {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
-  return Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
-}
-
-async function writeFile(uri: vscode.Uri, text: string): Promise<void> {
-  await vscode.workspace.fs.writeFile(uri, Buffer.from(text, 'utf8'));
+  return text;
 }
