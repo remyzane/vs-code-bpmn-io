@@ -1,8 +1,8 @@
 /* global acquireVsCodeApi */
 
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
-import 'bpmn-js/dist/assets/diagram-js.css';
 import 'bpmn-js/dist/assets/bpmn-js.css';
+import 'bpmn-js/dist/assets/diagram-js.css';
 
 import './bpmn-editor.css';
 
@@ -11,6 +11,8 @@ import BpmnModeler from 'bpmn-js/lib/Modeler';
 import BpmnColorPickerModule from 'bpmn-js-color-picker';
 
 import { handleMacOsKeyboard } from './utils/macos-keyboard';
+
+import 中文翻译 from './i18n';
 
 /**
  * @type { import('vscode') }
@@ -22,7 +24,8 @@ handleMacOsKeyboard();
 const modeler = new BpmnModeler({
   container: '#canvas',
   additionalModules: [
-    BpmnColorPickerModule
+    BpmnColorPickerModule,
+    { translate: ['value', 中文翻译] }
   ]
 });
 
@@ -66,41 +69,41 @@ window.addEventListener('message', async (event) => {
   } = event.data;
 
   switch (type) {
-  case 'init':
-    if (!body.content) {
-      return modeler.createDiagram();
-    } else {
-      return modeler.importXML(body.content);
+    case 'init':
+      if (!body.content) {
+        return modeler.createDiagram();
+      } else {
+        return modeler.importXML(body.content);
+      }
+
+    case 'update': {
+      if (body.content) {
+        return modeler.importXML(body.content);
+      }
+
+      if (body.undo) {
+        return modeler.get('commandStack').undo();
+      }
+
+      if (body.redo) {
+        return modeler.get('commandStack').redo();
+      }
+
+      break;
     }
 
-  case 'update': {
-    if (body.content) {
-      return modeler.importXML(body.content);
-    }
-
-    if (body.undo) {
-      return modeler.get('commandStack').undo();
-    }
-
-    if (body.redo) {
-      return modeler.get('commandStack').redo();
-    }
-
-    break;
-  }
-
-  case 'getText':
-    return modeler.saveXML({ format: true }).then(({ xml }) => {
-      return vscode.postMessage({
-        type: 'response',
-        requestId,
-        body: xml
+    case 'getText':
+      return modeler.saveXML({ format: true }).then(({ xml }) => {
+        return vscode.postMessage({
+          type: 'response',
+          requestId,
+          body: xml
+        });
       });
-    });
 
-  case 'focusCanvas':
-    modeler.get('canvas').focus();
-    return;
+    case 'focusCanvas':
+      modeler.get('canvas').focus();
+      return;
   }
 });
 
