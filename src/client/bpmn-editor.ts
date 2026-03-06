@@ -11,6 +11,7 @@ import BpmnModeler from 'bpmn-js/lib/Modeler';
 import BpmnColorPickerModule from 'bpmn-js-color-picker';
 
 import { handleMacOsKeyboard } from './utils/macos-keyboard';
+import * as vsc from '../接口封装.js';
 
 // import 中文翻译 from './i18n/index';
 
@@ -60,7 +61,7 @@ modeler.on('canvas.focus.changed', (event) => {
 
 
 // handle messages from the extension
-window.addEventListener('message', async (event) => {
+vsc.window.addEventListener('message', async (event) => {
 
   const {
     type,
