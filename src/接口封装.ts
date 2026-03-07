@@ -21,11 +21,64 @@ export async function 写文件(uri: vsc.Uri, text: string): Promise<void> {
     await vsc.workspace.fs.writeFile(uri, Buffer.from(text, 'utf8'));
 }
 
+export interface 编辑事件信息体 {
+    readonly idx: number;
+    readonly type: string;
+}
+
 export function 全部清除(可清除对象列表: vsc.Disposable[]): void {
     while (可清除对象列表.length) {
         const 可清除对象 = 可清除对象列表.pop();
         if (可清除对象) {
             可清除对象.dispose();
         }
+    }
+}
+
+
+/**
+ * Tracks all webviews.
+ */
+export class WebviewCollection {
+
+    private readonly _webviews = new Set<{
+        readonly resource: string;
+        readonly webviewPanel: vsc.WebviewPanel;
+    }>();
+
+    /**
+     * Get all known webviews for a given uri.
+     */
+    public *get(uri: vsc.Uri): Iterable<vsc.WebviewPanel> {
+        const key = uri?.toString();
+        for (const entry of this._webviews) {
+            if (entry.resource === key) {
+                yield entry.webviewPanel;
+            }
+        }
+    }
+
+    /**
+     * Add a new webview to the collection.
+     */
+    public add(uri: vsc.Uri, webviewPanel: vsc.WebviewPanel) {
+        const entry = { resource: uri.toString(), webviewPanel };
+        this._webviews.add(entry);
+
+        webviewPanel.onDidDispose(() => {
+            this._webviews.delete(entry);
+        });
+    }
+
+    public find(cb: (e: vsc.WebviewPanel) => boolean) {
+        for (const entry of this._webviews) {
+            const { webviewPanel } = entry;
+
+            if (cb(webviewPanel)) {
+                return webviewPanel;
+            }
+        }
+
+        return null;
     }
 }

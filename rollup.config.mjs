@@ -39,7 +39,7 @@ export default [
       format: 'commonjs',
       file: './out/extension.js'
     },
-    external: [ 'vscode' ],
+    external: ['vscode'],
     plugins: [
       typescript(),
       resolve(),
