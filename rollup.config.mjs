@@ -1,7 +1,7 @@
-import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import url from '@rollup/plugin-url';
+import resolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
+import url from '@rollup/plugin-url';
 
 import css from 'rollup-plugin-css-only';
 
@@ -9,11 +9,11 @@ export default [
 
   // client
   {
-    input: 'src/client/bpmn-editor.js',
+    input: 'src/bpmn/index.js',
     output: {
       sourcemap: true,
       format: 'iife',
-      file: './out/client/bpmn-editor.js'
+      file: './out/bpmn/index.js'
     },
     plugins: [
       url({
@@ -21,7 +21,7 @@ export default [
         publicPath: '/media/'
       }),
 
-      css({ output: 'bpmn-editor.css' }),
+      css({ output: 'bpmn/样式.css' }),
 
       resolve(),
       commonjs()

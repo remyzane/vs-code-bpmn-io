@@ -1,5 +1,5 @@
 
-import * as vsc from './接口封装';
+import * as vsc from '.';
 
 /**
 VSCode 文档关闭不会马上释放缓存：

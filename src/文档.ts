@@ -1,5 +1,5 @@
-import * as vsc from './接口封装';
-import { 需手工释放的文档 } from './文档封装';
+import * as vsc from './vsc/index';
+import { 需手工释放的文档 } from './vsc/文档基类';
 
 interface BPMN文档提供器 {
     getText(): Promise<string>;

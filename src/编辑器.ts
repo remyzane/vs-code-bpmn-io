@@ -1,5 +1,5 @@
-import { BPMN文档, BPMN文档集合类 } from './BPMN文档';
-import * as vsc from './接口封装';
+import * as vsc from './vsc/index';
+import { BPMN文档, BPMN文档集合类 } from './文档';
 
 /**
  * Provider for visual BPMN editing.
@@ -214,7 +214,7 @@ export class BPMN编辑器 implements vsc.CustomEditorProvider<BPMN文档> {
 
         // local path to script and css for the webview
         const scriptUri = webview.asWebviewUri(vsc.Uri.joinPath(
-            this._context.extensionUri, 'out/client', 'bpmn-editor.js'));
+            this._context.extensionUri, 'out', 'bpmn', 'index.js'));
 
         const styleResetUri = webview.asWebviewUri(vsc.Uri.joinPath(
             this._context.extensionUri, 'media', 'reset.css'));
@@ -223,7 +223,7 @@ export class BPMN编辑器 implements vsc.CustomEditorProvider<BPMN文档> {
             this._context.extensionUri, 'media', 'vsc.css'));
 
         const styleMainUri = webview.asWebviewUri(vsc.Uri.joinPath(
-            this._context.extensionUri, 'out/client', 'bpmn-editor.css'));
+            this._context.extensionUri, 'out', 'bpmn', '样式.css'));
 
         // use a nonce to whitelist which scripts can be run
         const nonce = getNonce();
