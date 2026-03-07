@@ -1,5 +1,5 @@
-import { Disposable } from './dispose';
 import * as vsc from './接口封装';
+import { Disposable } from './页面封装';
 
 /**
  * Define the type of edits used in paw draw files.
@@ -55,14 +55,14 @@ class BpmnDocument extends Disposable implements vsc.CustomDocument {
    */
   public getText(): string { return this._text; }
 
-  private readonly _onDidDispose = this._register(new vsc.EventEmitter<void>());
+  private readonly _onDidDispose = this.登记可释放对象(new vsc.EventEmitter<void>());
 
   /**
    * Fired when the document is disposed of.
    */
   public readonly onDidDispose = this._onDidDispose.event;
 
-  private readonly _onDidChangeContent = this._register(new vsc.EventEmitter<{
+  private readonly _onDidChangeContent = this.登记可释放对象(new vsc.EventEmitter<{
     readonly content?: string;
     readonly undo?: boolean;
     readonly redo?: boolean;
@@ -73,7 +73,7 @@ class BpmnDocument extends Disposable implements vsc.CustomDocument {
    */
   public readonly onDidChangeContent = this._onDidChangeContent.event;
 
-  private readonly _onDidChange = this._register(new vsc.EventEmitter<{
+  private readonly _onDidChange = this.登记可释放对象(new vsc.EventEmitter<{
     readonly label: string;
     undo(): Thenable<void> | void;
     redo(): Thenable<void> | void
@@ -86,7 +86,7 @@ class BpmnDocument extends Disposable implements vsc.CustomDocument {
    */
   public readonly onDidChange = this._onDidChange.event;
 
-  private readonly _onDidRename = this._register(new vsc.EventEmitter<{
+  private readonly _onDidRename = this.登记可释放对象(new vsc.EventEmitter<{
     oldUri: vsc.Uri,
     newUri: vsc.Uri
   }>());
@@ -105,7 +105,7 @@ class BpmnDocument extends Disposable implements vsc.CustomDocument {
    */
   dispose(): void {
     this._onDidDispose.fire();
-    super.dispose();
+    super.释放页面内容();
   }
 
   /**
